@@ -1,1 +1,44 @@
-oummmmmmmmmmmmmmouoooooooo
+{% extends "base.html" %}
+
+{% block title %}
+Proposer un échange - GameBarter
+{% endblock %}
+
+{% block content %}
+
+<h2>Proposer un échange pour : {{ target_item.title }}</h2>
+
+<p><strong>Propriétaire :</strong> {{ target_item.owner.username }}</p>
+<p><strong>Catégorie :</strong> {{ target_item.category }}</p>
+<img src="{{ target_item.image.url }}" class="img-thumbnail mb-3" style="max-width:200px;">
+
+<form method="post">
+    {% csrf_token %}
+
+    <!-- Sélection des objets proposés par l'utilisateur -->
+    <div class="mb-3">
+        <label for="offered_items" class="form-label">Choisissez vos objets à proposer :</label>
+        {% for item in user_items %}
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="offered_items" value="{{ item.id }}" id="item{{ item.id }}">
+                <label class="form-check-label" for="item{{ item.id }}">{{ item.title }} ({{ item.category }})</label>
+            </div>
+        {% empty %}
+            <p>Vous n'avez pas d'objets à proposer.</p>
+        {% endfor %}
+    </div>
+
+    <!-- L'objet demandé (toujours le target) -->
+    <input type="hidden" name="requested_items" value="{{ target_item.id }}">
+
+    <!-- Message initial -->
+    <div class="mb-3">
+        <label for="message" class="form-label">Message (optionnel) :</label>
+        <textarea class="form-control" id="message" name="message" rows="3"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-success">Proposer l'échange</button>
+    <a href="{% url 'home' %}" class="btn btn-secondary">Annuler</a>
+</form>
+
+{% endblock %}

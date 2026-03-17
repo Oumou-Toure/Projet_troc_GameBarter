@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}
+Mes échanges - GameBarter
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card img{
+    width:100%;
+    height:120px;
+    object-fit:cover;
+}
+.messages{
+    background:#f1f1f1;
+    padding:10px;
+    margin-bottom:5px;
+    border-radius:5px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h2 class="mb-4">Mes échanges</h2>
+
+<h4>Propositions d'échanges reçus</h4>
+{% for trade in trades_received %}
+<div class="card mb-3 shadow-sm">
+    <div class="card-body">
+
+        <p>
+            <strong>Proposé par :</strong> {{ trade.proposer.username }} <br>
+            <strong>Status :</strong> {{ trade.status|capfirst }}
+        </p>
+
+        <p><strong>Objets proposés :</strong></p>
+        <ul>
+        {% for item in trade.offered_items.all %}
+            <li>{{ item.title }} ({{ item.category }})</li>
+        {% endfor %}
+        </ul>
+
+        <p><strong>Objets demandés :</strong></p>
+        <ul>
+        {% for item in trade.requested_items.all %}
+            <li>{{ item.title }} ({{ item.category }})</li>
+        {% endfor %}
+        </ul>
+
+        <h6>Messages :</h6>
+        {% for msg in trade.messages.all %}
+            <div class="messages">
+                <strong>{{ msg.sender.username }} :</strong> {{ msg.content }}
+            </div>
+        {% empty %}
+            <p>Aucun message pour le moment.</p>
+        {% endfor %}
+
+        <!-- Actions : accepter/refuser/ajouter message -->
+        {% if trade.status == "pending" %}
+        <form method="post" action="{% url 'trade_action' trade.id %}">
+            {% csrf_token %}
+            <div class="mb-2">
+                <textarea name="message" class="form-control" placeholder="Ajouter un message..."></textarea>
+            </div>
+            <button name="action" value="accept" class="btn btn-success me-2">Accepter</button>
+            <button name="action" value="refuse" class="btn btn-danger me-2">Refuser</button>
+            <button name="action" value="message" class="btn btn-primary">Envoyer message</button>
+        </form>
+        {% endif %}
+
+    </div>
+</div>
+{% empty %}
+<p>Aucun échange reçu pour le moment.</p>
+{% endfor %}
+
+
+<h4 class="mt-5">Échanges envoyés</h4>
+{% for trade in trades_sent %}
+<div class="card mb-3 shadow-sm">
+    <div class="card-body">
+
+        <p>
+            <strong>À :</strong> {{ trade.receiver.username }} <br>
+            <strong>Status :</strong> {{ trade.status|capfirst }}
+        </p>
+
+        <p><strong>Objets proposés :</strong></p>
+        <ul>
+        {% for item in trade.offered_items.all %}
+            <li>{{ item.title }} ({{ item.category }})</li>
+        {% endfor %}
+        </ul>
+
+        <p><strong>Objets demandés :</strong></p>
+        <ul>
+        {% for item in trade.requested_items.all %}
+            <li>{{ item.title }} ({{ item.category }})</li>
+        {% endfor %}
+        </ul>
+
+        <h6>Messages :</h6>
+        {% for msg in trade.messages.all %}
+            <div class="messages">
+                <strong>{{ msg.sender.username }} :</strong> {{ msg.content }}
+            </div>
+        {% empty %}
+            <p>Aucun message pour le moment.</p>
+        {% endfor %}
+
+        <!-- Ajouter un message si l’échange est pending -->
+        {% if trade.status == "pending" %}
+        <form method="post" action="{% url 'trade_action' trade.id %}">
+            {% csrf_token %}
+            <div class="mb-2">
+                <textarea name="message" class="form-control" placeholder="Ajouter un message..."></textarea>
+            </div>
+            <button name="action" value="message" class="btn btn-primary">Envoyer message</button>
+        </form>
+        {% endif %}
+
+    </div>
+</div>
+{% empty %}
+<p>Aucun échange envoyé pour le moment.</p>
+{% endfor %}
+
+{% endblock %}

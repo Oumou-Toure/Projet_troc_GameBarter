@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}
+Mes articles - GameBarter
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.items{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:20px;
+}
+
+.card img{
+    width:100%;
+    height:150px;
+    object-fit:cover;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h2 class="mb-4">Mes articles</h2>
+
+<div class="items">
+
+{% for item in items %}
+<div class="card shadow-sm">
+    <img src="{{ item.image.url }}" class="card-img-top">
+    <div class="card-body">
+        <h5 class="card-title">{{ item.title }}</h5>
+        <p class="card-text">{{ item.category }}</p>
+    </div>
+</div>
+{% endfor %}
+
+</div>
+
+{% endblock %}
