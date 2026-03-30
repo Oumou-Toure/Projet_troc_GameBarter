@@ -35,18 +35,40 @@ Mes échanges - GameBarter
         </p>
 
         <p><strong>Objets proposés :</strong></p>
-        <ul>
+
+        <div class="row">
         {% for item in trade.offered_items.all %}
-            <li>{{ item.title }} ({{ item.category }})</li>
+            <div class="col-md-3 mb-2">
+                <div class="card shadow-sm">
+                    <img src="{{ item.image.url }}" class="card-img-top">
+                    <div class="card-body p-2">
+                        <small>
+                            <strong>{{ item.title }}</strong><br>
+                            {{ item.category }}
+                        </small>
+                    </div>
+                </div>
+            </div>
         {% endfor %}
-        </ul>
+        </div>
 
         <p><strong>Objets demandés :</strong></p>
-        <ul>
+
+        <div class="row">
         {% for item in trade.requested_items.all %}
-            <li>{{ item.title }} ({{ item.category }})</li>
+            <div class="col-md-3 mb-2">
+                <div class="card shadow-sm">
+                    <img src="{{ item.image.url }}" class="card-img-top">
+                    <div class="card-body p-2">
+                        <small>
+                            <strong>{{ item.title }}</strong><br>
+                            {{ item.category }}
+                        </small>
+                    </div>
+                </div>
+            </div>
         {% endfor %}
-        </ul>
+        </div>
 
         <h6>Messages :</h6>
         {% for msg in trade.messages.all %}

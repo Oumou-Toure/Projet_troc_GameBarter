@@ -1,31 +1,79 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.sqlite3
-
-# Virtual environment
+# =======================
+# ENVIRONNEMENTS VIRTUELS
+# =======================
 venv/
 env/
 .venv/
+venvtroc/
+venv*/
+*venv/
 
-# Django
+# =======================
+# PYTHON
+# =======================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# =======================
+# DJANGO
+# =======================
 db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+
+# Fichiers media uploadés par les utilisateurs
 media/
 
-# Static files
+# Fichiers statiques collectés (collectstatic)
 staticfiles/
+static_root/
 
-# Environment variables
+# Fichier de config local (secrets)
+local_settings.py
 .env
+.env.*
 
-# IDE
+# =======================
+# IDE & EDITEURS
+# =======================
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Mac
+# =======================
+# OS
+# =======================
 .DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
 
-# Logs
+# =======================
+# LOGS & TEMP
+# =======================
 *.log
+*.pot
+*.tmp
+
+# =======================
+# MIGRATIONS (à garder trackées en général)
+# Décommenter si vous voulez les ignorer
+# =======================
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# =======================
+# COVERAGE & TESTS
+# =======================
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
