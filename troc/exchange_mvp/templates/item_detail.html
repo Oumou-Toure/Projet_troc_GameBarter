@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ item.title }} - GameBarter{% endblock %}
+
+{% block extra_css %}
+<style>
+.item-cover {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    border-radius: 12px;
+}
+.owner-avatar {
+    width: 42px; height: 42px;
+    background: #0d6efd;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: bold; font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.star-filled { color: #ffc107; }
+.star-empty { color: #dee2e6; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Accueil</a></li>
+        <li class="breadcrumb-item active">{{ item.title }}</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+
+    <!-- Image -->
+    <div class="col-md-6">
+        <img src="{{ item.image.url }}" class="item-cover shadow-sm" alt="{{ item.title }}">
+    </div>
+
+    <!-- Infos -->
+    <div class="col-md-6">
+
+        <!-- Badges -->
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <span class="badge bg-secondary">{{ item.category }}</span>
+            {% if item.available %}
+                <span class="badge bg-success">Disponible</span>
+            {% else %}
+                <span class="badge bg-danger">Non disponible</span>
+            {% endif %}
+            {% if item.received_by_trade %}
+                <span class="badge bg-warning text-dark">
+                    <i class="bi bi-arrow-left-right"></i> Reçu par échange
+                </span>
+            {% endif %}
+        </div>
+
+        <h2 class="mb-3">{{ item.title }}</h2>
+
+        <p class="text-muted mb-4">{{ item.description }}</p>
+
+        <!-- Propriétaire -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body d-flex align-items-center gap-3 py-3">
+                <div class="owner-avatar">{{ item.owner.username|first|upper }}</div>
+                <div>
+                    <p class="mb-0 fw-semibold">
+                        <a href="{% url 'user_profile' item.owner.username %}"
+                            class="text-decoration-none">
+                            {{ item.owner.username }}
+                        </a>
+                    </p>
+                    <small class="text-muted">
+                        {% if avg_rating %}
+                            <i class="bi bi-star-fill star-filled"></i>
+                            {{ avg_rating|floatformat:1 }}/5
+                            ({{ ratings_count }} avis)
+                        {% else %}
+                            Pas encore noté
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bouton action -->
+        {% if can_trade %}
+            <a href="{% url 'create_trade' item.id %}" class="btn btn-primary btn-lg w-100 mb-2">
+                <i class="bi bi-arrow-left-right"></i> Proposer un échange
+            </a>
+        {% elif not item.available %}
+            <div class="alert alert-warning mb-2">
+                <i class="bi bi-exclamation-triangle"></i>
+                Cet article n'est plus disponible à l'échange.
+            </div>
+        {% elif not user.is_authenticated %}
+            <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg w-100 mb-2">
+                <i class="bi bi-box-arrow-in-right"></i> Connectez-vous pour échanger
+            </a>
+        {% elif user == item.owner %}
+            <div class="alert alert-info mb-2">
+                <i class="bi bi-info-circle"></i> C'est votre article.
+            </div>
+        {% endif %}
+
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-arrow-left"></i> Retour au catalogue
+        </a>
+
+    </div>
+</div>
+{% endblock %}

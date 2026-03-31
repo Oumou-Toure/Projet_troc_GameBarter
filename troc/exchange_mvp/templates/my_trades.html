@@ -1,152 +1,417 @@
 {% extends "base.html" %}
-
-{% block title %}
-Mes échanges - GameBarter
-{% endblock %}
+{% block title %}Mes échanges - GameBarter{% endblock %}
 
 {% block extra_css %}
 <style>
-.card img{
-    width:100%;
-    height:120px;
-    object-fit:cover;
+.item-thumb { width:100%; height:100px; object-fit:cover; border-radius:8px; }
+
+/* ── CHAT ── */
+.chat-box {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 12px;
+    max-height: 220px;
+    overflow-y: auto;
 }
-.messages{
-    background:#f1f1f1;
-    padding:10px;
-    margin-bottom:5px;
-    border-radius:5px;
+.msg-row { display:flex; margin-bottom:10px; }
+.msg-row.mine { justify-content: flex-end; }
+.msg-bubble {
+    max-width: 75%;
+    padding: 8px 14px;
+    border-radius: 18px;
+    font-size: 0.875rem;
+    line-height: 1.4;
 }
+.msg-row:not(.mine) .msg-bubble {
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-bottom-left-radius: 4px;
+}
+.msg-row.mine .msg-bubble {
+    background: #0d6efd;
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+.msg-meta { font-size:0.7rem; color:#adb5bd; margin-top:3px; display:block; }
+.msg-row.mine .msg-meta { text-align:right; }
+
+/* ── LIVRAISON ── */
+.delivery-card {
+    border: 2px dashed #dee2e6;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fafafa;
+}
+.delivery-option {
+    cursor: pointer;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+    transition: all 0.2s;
+    background: white;
+    display: block;
+}
+.delivery-option:hover { border-color: #0d6efd; background: #f0f5ff; }
+.delivery-option.selected { border-color: #0d6efd; background: #f0f5ff; }
+.delivery-icon { font-size:1.8rem; display:block; margin-bottom:4px; }
+
+.trade-card { border-radius: 12px; overflow:hidden; }
 </style>
 {% endblock %}
 
 {% block content %}
-
 <h2 class="mb-4">Mes échanges</h2>
 
-<h4>Propositions d'échanges reçus</h4>
+<!-- ══════════ REÇUS ══════════ -->
+<h5 class="mb-3 text-muted"><i class="bi bi-inbox-fill"></i> Propositions reçues</h5>
+
 {% for trade in trades_received %}
-<div class="card mb-3 shadow-sm">
+<div class="card trade-card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-person-circle text-muted"></i>
+            <strong>
+                <a href="{% url 'user_profile' trade.proposer.username %}" class="text-decoration-none">
+                    {{ trade.proposer.username }}
+                </a>
+            </strong>
+            <span class="text-muted small ms-1">· Échange #{{ trade.id }}</span>
+        </div>
+        <span class="badge rounded-pill
+            {% if trade.status == 'pending' %}bg-warning text-dark
+            {% elif trade.status == 'accepted' %}bg-info text-dark
+            {% elif trade.status == 'completed' %}bg-success
+            {% elif trade.status == 'refused' %}bg-danger
+            {% else %}bg-secondary{% endif %}">
+            {{ trade.get_status_display }}
+        </span>
+    </div>
+
     <div class="card-body">
-
-        <p>
-            <strong>Proposé par :</strong> {{ trade.proposer.username }} <br>
-            <strong>Status :</strong> {{ trade.status|capfirst }}
-        </p>
-
-        <p><strong>Objets proposés :</strong></p>
-
-        <div class="row">
-        {% for item in trade.offered_items.all %}
-            <div class="col-md-3 mb-2">
-                <div class="card shadow-sm">
-                    <img src="{{ item.image.url }}" class="card-img-top">
-                    <div class="card-body p-2">
-                        <small>
-                            <strong>{{ item.title }}</strong><br>
-                            {{ item.category }}
-                        </small>
+        <!-- Articles -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <p class="small fw-semibold text-muted mb-2"><i class="bi bi-gift"></i> IL PROPOSE</p>
+                <div class="row g-2">
+                {% for item in trade.offered_items.all %}
+                    <div class="col-6">
+                        <img src="{{ item.image.url }}" class="item-thumb" alt="{{ item.title }}">
+                        <p class="small fw-semibold mb-0 mt-1">{{ item.title }}</p>
+                        <p class="small text-muted mb-0">{{ item.category }}</p>
                     </div>
+                {% endfor %}
                 </div>
             </div>
-        {% endfor %}
-        </div>
-
-        <p><strong>Objets demandés :</strong></p>
-
-        <div class="row">
-        {% for item in trade.requested_items.all %}
-            <div class="col-md-3 mb-2">
-                <div class="card shadow-sm">
-                    <img src="{{ item.image.url }}" class="card-img-top">
-                    <div class="card-body p-2">
-                        <small>
-                            <strong>{{ item.title }}</strong><br>
-                            {{ item.category }}
-                        </small>
+            <div class="col-md-6">
+                <p class="small fw-semibold text-muted mb-2"><i class="bi bi-bag"></i> IL DEMANDE</p>
+                <div class="row g-2">
+                {% for item in trade.requested_items.all %}
+                    <div class="col-6">
+                        <img src="{{ item.image.url }}" class="item-thumb" alt="{{ item.title }}">
+                        <p class="small fw-semibold mb-0 mt-1">{{ item.title }}</p>
+                        <p class="small text-muted mb-0">{{ item.category }}</p>
                     </div>
+                {% endfor %}
                 </div>
             </div>
-        {% endfor %}
         </div>
 
-        <h6>Messages :</h6>
-        {% for msg in trade.messages.all %}
-            <div class="messages">
-                <strong>{{ msg.sender.username }} :</strong> {{ msg.content }}
+        <!-- Chat -->
+        <p class="small fw-semibold text-muted mb-2"><i class="bi bi-chat-dots"></i> MESSAGES</p>
+        <div class="chat-box mb-3">
+            {% for msg in trade.messages.all %}
+            <div class="msg-row {% if msg.sender == user %}mine{% endif %}">
+                <div>
+                    <div class="msg-bubble">{{ msg.content }}</div>
+                    <span class="msg-meta">{{ msg.sender.username }} · {{ msg.created_at|date:"d/m H:i" }}</span>
+                </div>
             </div>
-        {% empty %}
-            <p>Aucun message pour le moment.</p>
-        {% endfor %}
+            {% empty %}
+            <p class="text-muted small text-center mb-0">Aucun message pour le moment.</p>
+            {% endfor %}
+        </div>
 
-        <!-- Actions : accepter/refuser/ajouter message -->
+        <!-- Actions pending -->
         {% if trade.status == "pending" %}
         <form method="post" action="{% url 'trade_action' trade.id %}">
             {% csrf_token %}
-            <div class="mb-2">
-                <textarea name="message" class="form-control" placeholder="Ajouter un message..."></textarea>
+            <div class="input-group mb-2">
+                <input type="text" name="message" class="form-control form-control-sm"
+                    placeholder="Répondre ou négocier...">
+                <button name="action" value="message" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-send"></i>
+                </button>
             </div>
-            <button name="action" value="accept" class="btn btn-success me-2">Accepter</button>
-            <button name="action" value="refuse" class="btn btn-danger me-2">Refuser</button>
-            <button name="action" value="message" class="btn btn-primary">Envoyer message</button>
+            <div class="d-flex gap-2">
+                <button name="action" value="accept" class="btn btn-success btn-sm">
+                    <i class="bi bi-check-lg"></i> Accepter l'échange
+                </button>
+                <button name="action" value="refuse" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-x-lg"></i> Refuser
+                </button>
+            </div>
         </form>
+        {% endif %}
+
+        <!-- Confirmer livraison -->
+        {% if trade.status == "accepted" and trade.delivery_mode %}
+        <div class="delivery-card mt-3">
+            <p class="fw-semibold mb-3"><i class="bi bi-truck"></i> Mode de livraison proposé</p>
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <span style="font-size:2rem;">
+                    {% if trade.delivery_mode == "hand" %}🤝
+                    {% elif trade.delivery_mode == "post" %}📦
+                    {% else %}📋{% endif %}
+                </span>
+                <div>
+                    <strong>{{ trade.get_delivery_mode_display }}</strong>
+                    <p class="text-muted small mb-0">{{ trade.delivery_info }}</p>
+                </div>
+            </div>
+            <form method="post" action="{% url 'trade_action' trade.id %}">
+                {% csrf_token %}
+                <button name="action" value="confirm_delivery" class="btn btn-success btn-sm">
+                    <i class="bi bi-check-circle"></i> Confirmer et finaliser
+                </button>
+            </form>
+        </div>
+        {% elif trade.status == "accepted" and not trade.delivery_mode %}
+        <div class="alert alert-light border mt-3 py-2 small">
+            <i class="bi bi-hourglass-split text-warning"></i>
+            En attente que <strong>{{ trade.proposer.username }}</strong> choisisse le mode de livraison...
+        </div>
+        {% endif %}
+
+        <!-- Terminé -->
+        {% if trade.status == "completed" %}
+        <div class="alert alert-success py-2 mt-3 small">
+            <i class="bi bi-check-circle-fill"></i>
+            Échange terminé · {{ trade.get_delivery_mode_display }}
+            <span class="text-muted ms-1">— {{ trade.delivery_info }}</span>
+        </div>
+        {% if trade.id not in rated_trade_ids %}
+        <a href="{% url 'rate_trade' trade.id %}" class="btn btn-warning btn-sm mt-2">
+            <i class="bi bi-star"></i> Noter {{ trade.proposer.username }}
+        </a>
+        {% endif %}
         {% endif %}
 
     </div>
 </div>
 {% empty %}
-<p>Aucun échange reçu pour le moment.</p>
+<div class="text-center py-4 text-muted mb-4">
+    <i class="bi bi-inbox" style="font-size:2.5rem;"></i>
+    <p class="mt-2 mb-0">Aucune proposition reçue.</p>
+</div>
 {% endfor %}
 
 
-<h4 class="mt-5">Échanges envoyés</h4>
+<!-- ══════════ ENVOYÉS ══════════ -->
+<h5 class="mt-4 mb-3 text-muted"><i class="bi bi-send-fill"></i> Échanges envoyés</h5>
+
 {% for trade in trades_sent %}
-<div class="card mb-3 shadow-sm">
+<div class="card trade-card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-person-circle text-muted"></i>
+            <strong>
+                <a href="{% url 'user_profile' trade.receiver.username %}" class="text-decoration-none">
+                    {{ trade.receiver.username }}
+                </a>
+            </strong>
+            <span class="text-muted small ms-1">· Échange #{{ trade.id }}</span>
+        </div>
+        <span class="badge rounded-pill
+            {% if trade.status == 'pending' %}bg-warning text-dark
+            {% elif trade.status == 'accepted' %}bg-info text-dark
+            {% elif trade.status == 'completed' %}bg-success
+            {% elif trade.status == 'refused' %}bg-danger
+            {% else %}bg-secondary{% endif %}">
+            {{ trade.get_status_display }}
+        </span>
+    </div>
+
     <div class="card-body">
-
-        <p>
-            <strong>À :</strong> {{ trade.receiver.username }} <br>
-            <strong>Status :</strong> {{ trade.status|capfirst }}
-        </p>
-
-        <p><strong>Objets proposés :</strong></p>
-        <ul>
-        {% for item in trade.offered_items.all %}
-            <li>{{ item.title }} ({{ item.category }})</li>
-        {% endfor %}
-        </ul>
-
-        <p><strong>Objets demandés :</strong></p>
-        <ul>
-        {% for item in trade.requested_items.all %}
-            <li>{{ item.title }} ({{ item.category }})</li>
-        {% endfor %}
-        </ul>
-
-        <h6>Messages :</h6>
-        {% for msg in trade.messages.all %}
-            <div class="messages">
-                <strong>{{ msg.sender.username }} :</strong> {{ msg.content }}
+        <!-- Articles -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <p class="small fw-semibold text-muted mb-2"><i class="bi bi-gift"></i> VOUS PROPOSEZ</p>
+                <ul class="list-unstyled mb-0">
+                {% for item in trade.offered_items.all %}
+                    <li class="d-flex align-items-center gap-2 mb-2">
+                        <img src="{{ item.image.url }}"
+                            style="width:40px;height:40px;object-fit:cover;border-radius:6px;">
+                        <div>
+                            <p class="small fw-semibold mb-0">{{ item.title }}</p>
+                            <p class="small text-muted mb-0">{{ item.category }}</p>
+                        </div>
+                    </li>
+                {% endfor %}
+                </ul>
             </div>
-        {% empty %}
-            <p>Aucun message pour le moment.</p>
-        {% endfor %}
+            <div class="col-md-6">
+                <p class="small fw-semibold text-muted mb-2"><i class="bi bi-bag"></i> VOUS DEMANDEZ</p>
+                <ul class="list-unstyled mb-0">
+                {% for item in trade.requested_items.all %}
+                    <li class="d-flex align-items-center gap-2 mb-2">
+                        <img src="{{ item.image.url }}"
+                            style="width:40px;height:40px;object-fit:cover;border-radius:6px;">
+                        <div>
+                            <p class="small fw-semibold mb-0">{{ item.title }}</p>
+                            <p class="small text-muted mb-0">{{ item.category }}</p>
+                        </div>
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
 
-        <!-- Ajouter un message si l’échange est pending -->
+        <!-- Chat -->
+        <p class="small fw-semibold text-muted mb-2"><i class="bi bi-chat-dots"></i> MESSAGES</p>
+        <div class="chat-box mb-3">
+            {% for msg in trade.messages.all %}
+            <div class="msg-row {% if msg.sender == user %}mine{% endif %}">
+                <div>
+                    <div class="msg-bubble">{{ msg.content }}</div>
+                    <span class="msg-meta">{{ msg.sender.username }} · {{ msg.created_at|date:"d/m H:i" }}</span>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted small text-center mb-0">Aucun message pour le moment.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Actions pending -->
         {% if trade.status == "pending" %}
         <form method="post" action="{% url 'trade_action' trade.id %}">
             {% csrf_token %}
-            <div class="mb-2">
-                <textarea name="message" class="form-control" placeholder="Ajouter un message..."></textarea>
+            <div class="input-group mb-2">
+                <input type="text" name="message" class="form-control form-control-sm"
+                    placeholder="Ajouter un message...">
+                <button name="action" value="message" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-send"></i>
+                </button>
             </div>
-            <button name="action" value="message" class="btn btn-primary">Envoyer message</button>
+            <button name="action" value="cancel" class="btn btn-outline-danger btn-sm"
+                onclick="return confirm('Annuler cet échange ?')">
+                <i class="bi bi-x-circle"></i> Annuler la proposition
+            </button>
         </form>
+        {% endif %}
+
+        <!-- Annuler après acceptation (24h) -->
+        {% if trade.status == "accepted" %}
+        <div class="mt-2">
+            <form method="post" action="{% url 'trade_action' trade.id %}">
+                {% csrf_token %}
+                <button name="action" value="cancel_accepted"
+                    class="btn btn-outline-danger btn-sm"
+                    onclick="return confirm('Annuler cet échange accepté ? Les articles seront remis disponibles.')">
+                    <i class="bi bi-x-circle"></i> Annuler l'échange
+                    <small class="d-block text-muted" style="font-size:0.65rem;">
+                        Possible dans les 24h après acceptation uniquement
+                    </small>
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- Choisir mode de livraison -->
+        {% if trade.status == "accepted" and not trade.delivery_mode %}
+        <div class="delivery-card mt-3">
+            <p class="fw-semibold mb-3">
+                <i class="bi bi-truck"></i> Échange accepté ! Choisissez le mode de livraison :
+            </p>
+            <form method="post" action="{% url 'trade_action' trade.id %}">
+                {% csrf_token %}
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <label class="delivery-option" id="opt-hand-{{ trade.id }}">
+                            <input type="radio" name="delivery_mode" value="hand" class="d-none"
+                                onchange="selectDelivery('hand', {{ trade.id }})">
+                            <span class="delivery-icon">🤝</span>
+                            <span class="small">Main propre</span>
+                        </label>
+                    </div>
+                    <div class="col-4">
+                        <label class="delivery-option" id="opt-post-{{ trade.id }}">
+                            <input type="radio" name="delivery_mode" value="post" class="d-none"
+                                onchange="selectDelivery('post', {{ trade.id }})">
+                            <span class="delivery-icon">📦</span>
+                            <span class="small">Via la poste</span>
+                        </label>
+                    </div>
+                    <div class="col-4">
+                        <label class="delivery-option" id="opt-other-{{ trade.id }}">
+                            <input type="radio" name="delivery_mode" value="other" class="d-none"
+                                onchange="selectDelivery('other', {{ trade.id }})">
+                            <span class="delivery-icon">📋</span>
+                            <span class="small">Autre</span>
+                        </label>
+                    </div>
+                </div>
+                <textarea name="delivery_info" id="deliveryInfo{{ trade.id }}"
+                    class="form-control form-control-sm mb-2" rows="2"
+                    placeholder="Sélectionnez un mode ci-dessus..."></textarea>
+                <button name="action" value="set_delivery" class="btn btn-primary btn-sm">
+                    <i class="bi bi-send"></i> Envoyer
+                </button>
+            </form>
+        </div>
+        {% elif trade.status == "accepted" and trade.delivery_mode %}
+        <div class="alert alert-light border mt-3 py-2 small">
+            <i class="bi bi-hourglass-split text-warning"></i>
+            Mode envoyé : <strong>{{ trade.get_delivery_mode_display }}</strong>
+            — {{ trade.delivery_info }}<br>
+            <span class="text-muted">
+                En attente de confirmation par {{ trade.receiver.username }}...
+            </span>
+        </div>
+        {% endif %}
+
+        <!-- Terminé -->
+        {% if trade.status == "completed" %}
+        <div class="alert alert-success py-2 mt-3 small">
+            <i class="bi bi-check-circle-fill"></i>
+            Échange terminé · {{ trade.get_delivery_mode_display }}
+            <span class="text-muted ms-1">— {{ trade.delivery_info }}</span>
+        </div>
+        {% if trade.id not in rated_trade_ids %}
+        <a href="{% url 'rate_trade' trade.id %}" class="btn btn-warning btn-sm mt-2">
+            <i class="bi bi-star"></i> Noter {{ trade.receiver.username }}
+        </a>
+        {% endif %}
         {% endif %}
 
     </div>
 </div>
 {% empty %}
-<p>Aucun échange envoyé pour le moment.</p>
+<div class="text-center py-4 text-muted">
+    <i class="bi bi-send" style="font-size:2.5rem;"></i>
+    <p class="mt-2 mb-0">Aucun échange envoyé.</p>
+</div>
 {% endfor %}
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const deliveryPlaceholders = {
+    'hand': 'Lieu et date suggérés (ex : Paris 15e, samedi 5 avril à 14h)',
+    'post': "Votre adresse postale complète pour l'envoi",
+    'other': 'Décrivez le mode de livraison souhaité...'
+};
+
+function selectDelivery(mode, tradeId) {
+    ['hand', 'post', 'other'].forEach(m => {
+        const el = document.getElementById('opt-' + m + '-' + tradeId);
+        if (el) el.classList.remove('selected');
+    });
+    const selected = document.getElementById('opt-' + mode + '-' + tradeId);
+    if (selected) selected.classList.add('selected');
+    const info = document.getElementById('deliveryInfo' + tradeId);
+    if (info) info.placeholder = deliveryPlaceholders[mode] || '';
+}
+</script>
 {% endblock %}

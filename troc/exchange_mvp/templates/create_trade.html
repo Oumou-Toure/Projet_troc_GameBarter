@@ -1,44 +1,99 @@
 {% extends "base.html" %}
+{% block title %}Proposer un échange - GameBarter{% endblock %}
 
-{% block title %}
-Proposer un échange - GameBarter
+{% block extra_css %}
+<style>
+.item-checkbox { cursor: pointer; }
+.item-checkbox .card { transition: all 0.15s; }
+.item-checkbox .card img { width:100%; height:100px; object-fit:cover; }
+.item-checkbox input:checked + .card {
+    border: 2px solid #0d6efd;
+    background: #f0f5ff;
+}
+</style>
 {% endblock %}
 
 {% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <h3 class="mb-4">Proposer un échange</h3>
 
-<h2>Proposer un échange pour : {{ target_item.title }}</h2>
-
-<p><strong>Propriétaire :</strong> {{ target_item.owner.username }}</p>
-<p><strong>Catégorie :</strong> {{ target_item.category }}</p>
-<img src="{{ target_item.image.url }}" class="img-thumbnail mb-3" style="max-width:200px;">
-
-<form method="post">
-    {% csrf_token %}
-
-    <!-- Sélection des objets proposés par l'utilisateur -->
-    <div class="mb-3">
-        <label for="offered_items" class="form-label">Choisissez vos objets à proposer :</label>
-        {% for item in user_items %}
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="offered_items" value="{{ item.id }}" id="item{{ item.id }}">
-                <label class="form-check-label" for="item{{ item.id }}">{{ item.title }} ({{ item.category }})</label>
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header"><strong>Article convoité</strong></div>
+            <div class="card-body d-flex gap-3">
+                <img src="{{ target_item.image.url }}" style="width:100px;height:80px;object-fit:cover;border-radius:6px;">
+                <div>
+                    <h5 class="mb-1">{{ target_item.title }}</h5>
+                    <span class="badge bg-secondary">{{ target_item.category }}</span>
+                    <p class="mb-0 mt-1 small text-muted">
+                        Propriétaire :
+                        <a href="{% url 'user_profile' target_item.owner.username %}">{{ target_item.owner.username }}</a>
+                    </p>
+                </div>
             </div>
-        {% empty %}
-            <p>Vous n'avez pas d'objets à proposer.</p>
-        {% endfor %}
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="requested_items" value="{{ target_item.id }}">
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">
+                    <i class="bi bi-gift"></i> Vos articles à proposer
+                    <small class="text-muted fw-normal">(au moins un)</small>
+                </label>
+                {% if user_items %}
+                <div class="row g-2">
+                    {% for item in user_items %}
+                    <div class="col-md-4 col-6">
+                        <label class="item-checkbox d-block">
+                            <input type="checkbox" name="offered_items" value="{{ item.id }}" class="d-none">
+                            <div class="card shadow-sm h-100">
+                                <img src="{{ item.image.url }}" alt="{{ item.title }}">
+                                <div class="card-body p-2">
+                                    <strong class="small">{{ item.title }}</strong>
+                                    <p class="text-muted small mb-0">{{ item.category }}</p>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Vous n'avez aucun article disponible à proposer.
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <label for="message" class="form-label fw-bold">
+                    <i class="bi bi-chat"></i> Message (optionnel)
+                </label>
+                <textarea class="form-control" id="message" name="message" rows="3"
+                    placeholder="Présentez-vous, expliquez pourquoi cet article vous intéresse..."></textarea>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success" {% if not user_items %}disabled{% endif %}>
+                    <i class="bi bi-send"></i> Proposer l'échange
+                </button>
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+        </form>
     </div>
+</div>
+{% endblock %}
 
-    <!-- L'objet demandé (toujours le target) -->
-    <input type="hidden" name="requested_items" value="{{ target_item.id }}">
-
-    <!-- Message initial -->
-    <div class="mb-3">
-        <label for="message" class="form-label">Message (optionnel) :</label>
-        <textarea class="form-control" id="message" name="message" rows="3"></textarea>
-    </div>
-
-    <button type="submit" class="btn btn-success">Proposer l'échange</button>
-    <a href="{% url 'home' %}" class="btn btn-secondary">Annuler</a>
-</form>
-
+{% block extra_js %}
+<script>
+document.querySelectorAll('.item-checkbox input').forEach(cb => {
+    cb.addEventListener('change', () => {
+        const card = cb.closest('.item-checkbox').querySelector('.card');
+        card.style.borderColor = cb.checked ? '#0d6efd' : '';
+        card.style.background = cb.checked ? '#f0f5ff' : '';
+    });
+});
+</script>
 {% endblock %}

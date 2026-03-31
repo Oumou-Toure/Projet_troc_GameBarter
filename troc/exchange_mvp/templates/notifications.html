@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Notifications - GameBarter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-bell"></i> Notifications</h2>
+    <span class="text-muted">{{ notifications|length }} notification{{ notifications|length|pluralize }}</span>
+</div>
+
+{% if notifications %}
+    {% for notif in notifications %}
+    <div class="card mb-2 shadow-sm {% if not notif.is_read %}border-primary{% endif %}">
+        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+            <div>
+                {% if notif.notif_type == "trade_received" %}<i class="bi bi-arrow-left-right text-primary"></i>
+                {% elif notif.notif_type == "trade_accepted" %}<i class="bi bi-check-circle text-success"></i>
+                {% elif notif.notif_type == "trade_refused" %}<i class="bi bi-x-circle text-danger"></i>
+                {% elif notif.notif_type == "trade_cancelled" %}<i class="bi bi-dash-circle text-secondary"></i>
+                {% elif notif.notif_type == "message_received" %}<i class="bi bi-chat text-info"></i>
+                {% elif notif.notif_type == "rating_received" %}<i class="bi bi-star text-warning"></i>
+                {% endif %}
+                <span class="ms-2">{{ notif.message }}</span>
+                {% if not notif.is_read %}
+                    <span class="badge bg-primary ms-2" style="font-size:0.6rem;">Nouveau</span>
+                {% endif %}
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <small class="text-muted">{{ notif.created_at|timesince }}</small>
+                {% if notif.trade %}
+                    <a href="{% url 'my_trades' %}" class="btn btn-outline-primary btn-sm">Voir</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-bell-slash" style="font-size:3rem;color:#ccc;"></i>
+    <p class="mt-3 text-muted">Aucune notification pour le moment.</p>
+</div>
+{% endif %}
+{% endblock %}

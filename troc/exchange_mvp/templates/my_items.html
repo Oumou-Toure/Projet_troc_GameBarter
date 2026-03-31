@@ -1,41 +1,93 @@
 {% extends "base.html" %}
-
-{% block title %}
-Mes articles - GameBarter
-{% endblock %}
+{% block title %}Mes articles - GameBarter{% endblock %}
 
 {% block extra_css %}
 <style>
-.items{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:20px;
-}
-
-.card img{
-    width:100%;
-    height:150px;
-    object-fit:cover;
-}
+.items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+.card img { width:100%; height:140px; object-fit:cover; }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-collection"></i> Mes articles</h2>
+</div>
 
-<h2 class="mb-4">Mes articles</h2>
+<!-- Articles de base -->
+<h5 class="mb-3">
+    Mes articles
+    <span class="text-muted small">({{ original_items|length }})</span>
+</h5>
 
-<div class="items">
-
-{% for item in items %}
-<div class="card shadow-sm">
-    <img src="{{ item.image.url }}" class="card-img-top">
-    <div class="card-body">
-        <h5 class="card-title">{{ item.title }}</h5>
-        <p class="card-text">{{ item.category }}</p>
+{% if original_items %}
+<div class="items-grid mb-5">
+    {% for item in original_items %}
+    <div class="card shadow-sm h-100">
+        <img src="{{ item.image.url }}" class="card-img-top" alt="{{ item.title }}">
+        <div class="card-body">
+            <h5 class="card-title">{{ item.title }}</h5>
+            <p class="card-text text-muted small">{{ item.description|truncatechars:60 }}</p>
+            <span class="badge bg-secondary">{{ item.category }}</span>
+            {% if item.available %}
+                <span class="badge bg-success ms-1">Disponible</span>
+            {% else %}
+                <span class="badge bg-danger ms-1">Non disponible</span>
+            {% endif %}
+        </div>
     </div>
+    {% endfor %}
 </div>
-{% endfor %}
+{% else %}
+<p class="text-muted mb-5">Aucun article de base.</p>
+{% endif %}
 
+<!-- Articles reçus par échange -->
+<h5 class="mb-3">
+    <i class="bi bi-arrow-left-right"></i> Articles reçus par échange
+    <span class="text-muted small">({{ traded_items|length }})</span>
+</h5>
+
+{% if traded_items %}
+<div class="items-grid">
+    {% for item in traded_items %}
+    <div class="card shadow-sm h-100 border-warning">
+        <img src="{{ item.image.url }}" class="card-img-top" alt="{{ item.title }}">
+        <div class="card-body">
+            <h5 class="card-title">{{ item.title }}</h5>
+            <p class="card-text text-muted small">{{ item.description|truncatechars:60 }}</p>
+            <span class="badge bg-secondary">{{ item.category }}</span>
+            <span class="badge bg-warning text-dark ms-1">
+                <i class="bi bi-arrow-left-right"></i> Reçu par échange
+            </span>
+
+            <div class="mt-2">
+                {% if item.available %}
+                    <span class="badge bg-success">Visible dans le catalogue</span>
+                {% else %}
+                    <span class="badge bg-secondary">Non visible</span>
+                {% endif %}
+            </div>
+
+            <div class="mt-2">
+                <form method="post" action="{% url 'toggle_item_availability' item.id %}">
+                    {% csrf_token %}
+                    {% if item.available %}
+                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="bi bi-eye-slash"></i> Retirer du catalogue
+                        </button>
+                    {% else %}
+                        <button type="submit" class="btn btn-success btn-sm w-100">
+                            <i class="bi bi-eye"></i> Mettre en échange
+                        </button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 </div>
+{% else %}
+<p class="text-muted">Vous n'avez pas encore reçu d'articles par échange.</p>
+{% endif %}
 
 {% endblock %}
