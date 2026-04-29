@@ -13,6 +13,10 @@ jobs:
     name: Unit and Functional Tests
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: troc
+
     env:
       DJANGO_SETTINGS_MODULE: troc.settings
       DJANGO_ALLOW_ASYNC_UNSAFE: "1"
@@ -26,6 +30,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
+          cache-dependency-path: troc/requirements.txt
 
       - name: Install Python dependencies
         run: |
