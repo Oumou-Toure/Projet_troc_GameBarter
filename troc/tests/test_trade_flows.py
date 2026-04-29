@@ -373,3 +373,156 @@ def test_completed_trade_can_be_rated_and_rating_is_visible_on_profile(
     ).exists()
 
     session["context"].close()
+
+
+@pytest.mark.django_db
+def test_item_detail_displays_platform_condition_and_value(
+    django_live_server,
+    browser,
+    create_user,
+    create_category,
+):
+    from decimal import Decimal
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from exchange_mvp.models import Item
+
+    owner = create_user("detail_value_owner")
+    category = create_category("Detail Value")
+
+    image_bytes = (
+        b"GIF87a\x01\x00\x01\x00\x80\x00\x00"
+        b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01"
+        b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
+        b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    item = Item.objects.create(
+        title="Zelda Tears",
+        description="Excellent jeu Switch",
+        owner=owner,
+        category=category,
+        available=True,
+        platform="switch",
+        condition="new",
+        estimated_value=Decimal("55.00"),
+        release_year=2023,
+        image=SimpleUploadedFile("zelda.gif", image_bytes, content_type="image/gif"),
+    )
+
+    page = browser.new_page()
+    page.goto(f"{django_live_server.url}/item/{item.id}/")
+
+    assert page.locator("strong", has_text="Nintendo Switch").is_visible()
+    assert page.locator("strong", has_text="Neuf").is_visible()
+    assert page.locator("strong", has_text="55").is_visible()
+    assert page.locator("strong", has_text="2023").is_visible()
+
+    page.close()
+
+
+@pytest.mark.django_db
+def test_home_filter_by_platform(
+    django_live_server,
+    browser,
+    create_user,
+    create_category,
+):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from exchange_mvp.models import Item
+
+    owner = create_user("platform_filter_owner")
+    category = create_category("Platform Filter")
+
+    image_bytes = (
+        b"GIF87a\x01\x00\x01\x00\x80\x00\x00"
+        b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01"
+        b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
+        b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    Item.objects.create(
+        title="Spider-Man PS5",
+        description="Jeu PS5",
+        owner=owner,
+        category=category,
+        available=True,
+        platform="ps5",
+        condition="good",
+        image=SimpleUploadedFile("spiderman.gif", image_bytes, content_type="image/gif"),
+    )
+    Item.objects.create(
+        title="Mario Switch",
+        description="Jeu Switch",
+        owner=owner,
+        category=category,
+        available=True,
+        platform="switch",
+        condition="good",
+        image=SimpleUploadedFile("mario.gif", image_bytes, content_type="image/gif"),
+    )
+
+    page = browser.new_page()
+    page.goto(f"{django_live_server.url}/?platform=ps5")
+
+    assert page.locator("text=Spider-Man PS5").is_visible()
+    assert page.locator("text=Mario Switch").count() == 0
+
+    page.close()
+
+
+@pytest.mark.django_db
+def test_create_trade_shows_imbalance_warning(
+    django_live_server,
+    create_user,
+    create_category,
+    login_user,
+):
+    from decimal import Decimal
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from exchange_mvp.models import Item
+
+    proposer = create_user("imbalance_warn_prop")
+    receiver = create_user("imbalance_warn_recv")
+    category = create_category("Imbalance Warning")
+
+    image_bytes = (
+        b"GIF87a\x01\x00\x01\x00\x80\x00\x00"
+        b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01"
+        b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
+        b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    target = Item.objects.create(
+        title="Jeu Rare PS5",
+        description="Très cher",
+        owner=receiver,
+        category=category,
+        available=True,
+        platform="ps5",
+        condition="new",
+        estimated_value=Decimal("80.00"),
+        image=SimpleUploadedFile("rare.gif", image_bytes, content_type="image/gif"),
+    )
+    offered = Item.objects.create(
+        title="Jeu Commun Switch",
+        description="Pas cher",
+        owner=proposer,
+        category=category,
+        available=True,
+        platform="switch",
+        condition="correct",
+        estimated_value=Decimal("10.00"),
+        image=SimpleUploadedFile("commun.gif", image_bytes, content_type="image/gif"),
+    )
+
+    session = login_user(proposer)
+    page = session["page"]
+    page.goto(f"{django_live_server.url}/trade/create/{target.id}/")
+
+    # Cliquer sur le label qui contient le checkbox
+    page.locator(f'label.item-checkbox:has(input[value="{offered.id}"])').click()
+    page.wait_for_timeout(800)
+
+    assert page.locator("#imbalanceWarning").is_visible()
+
+    session["context"].close()

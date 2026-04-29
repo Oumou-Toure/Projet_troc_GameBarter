@@ -139,18 +139,16 @@
 
 {% block extra_js %}
 <script>
-const targetValue = {{ target_item.estimated_value|default:0 }};
+const targetValue = parseFloat("{{ target_item.estimated_value|default:0 }}");
+
+document.querySelectorAll('.item-checkbox').forEach(label => {
+    label.addEventListener('click', function() {
+        setTimeout(checkImbalance, 100);
+    });
+});
 
 document.querySelectorAll('.item-checkbox input').forEach(cb => {
-    cb.addEventListener('change', () => {
-        // Highlight visuel
-        const card = cb.closest('.item-checkbox').querySelector('.card');
-        card.style.borderColor = cb.checked ? '#0d6efd' : '';
-        card.style.background = cb.checked ? '#f0f5ff' : '';
-
-        // Calcul déséquilibre
-        checkImbalance();
-    });
+    cb.addEventListener('change', checkImbalance);
 });
 
 function checkImbalance() {
