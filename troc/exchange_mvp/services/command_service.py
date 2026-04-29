@@ -22,13 +22,6 @@ class TradeCommandService:
 
     @staticmethod
     def propose_trade(proposer, target_item, offered_item_ids, message_content=""):
-        """
-        Propose un échange.
-        - proposer : utilisateur qui propose
-        - target_item : article demandé
-        - offered_item_ids : liste d'ids des articles proposés
-        - message_content : message initial optionnel
-        """
         if target_item.owner == proposer:
             raise ValueError("Vous ne pouvez pas échanger votre propre article.")
 
@@ -46,6 +39,19 @@ class TradeCommandService:
 
         if not offered_items.exists():
             raise ValueError("Aucun article valide sélectionné.")
+
+        # Détection déséquilibre de valeur
+        imbalance_warning = False
+        if target_item.estimated_value:
+            total_offered_value = sum(
+                item.estimated_value for item in offered_items
+                if item.estimated_value
+            )
+            if total_offered_value > 0:
+                ratio = max(float(total_offered_value), float(target_item.estimated_value)) / \
+                        min(float(total_offered_value), float(target_item.estimated_value))
+                if ratio >= 2:
+                    imbalance_warning = True
 
         trade = Trade.objects.create(
             proposer=proposer,
@@ -66,19 +72,15 @@ class TradeCommandService:
         create_notification(
             user=target_item.owner,
             notif_type="trade_received",
-            message_text=f"{proposer.username} vous propose un échange pour « {target_item.title} ».",
+            message_text=f"{proposer.username} vous propose un échange pour « {target_item.title} »."
+            + (" ⚠️ Déséquilibre de valeur détecté." if imbalance_warning else ""),
             trade=trade,
         )
 
-        return trade
+        return trade, imbalance_warning
 
     @staticmethod
     def accept_trade(trade, receiver):
-        """
-        Accepte un échange.
-        - trade : l'échange à accepter
-        - receiver : utilisateur qui accepte (doit être le destinataire)
-        """
         if trade.receiver != receiver:
             raise PermissionError("Seul le destinataire peut accepter cet échange.")
 
@@ -88,12 +90,10 @@ class TradeCommandService:
         trade.status = "accepted"
         trade.save()
 
-        # Marquer les articles indisponibles
         for item in list(trade.offered_items.all()) + list(trade.requested_items.all()):
             item.available = False
             item.save()
 
-        # Annuler les échanges conflictuels
         TradeCommandService._cancel_conflicting_trades(trade)
 
         create_notification(
@@ -107,11 +107,6 @@ class TradeCommandService:
 
     @staticmethod
     def refuse_trade(trade, receiver):
-        """
-        Refuse un échange.
-        - trade : l'échange à refuser
-        - receiver : utilisateur qui refuse (doit être le destinataire)
-        """
         if trade.receiver != receiver:
             raise PermissionError("Seul le destinataire peut refuser cet échange.")
 
@@ -132,11 +127,6 @@ class TradeCommandService:
 
     @staticmethod
     def cancel_trade(trade, proposer):
-        """
-        Annule un échange pending.
-        - trade : l'échange à annuler
-        - proposer : utilisateur qui annule (doit être le proposeur)
-        """
         if trade.proposer != proposer:
             raise PermissionError("Seul le proposeur peut annuler cet échange.")
 
@@ -157,11 +147,6 @@ class TradeCommandService:
 
     @staticmethod
     def cancel_accepted_trade(trade, proposer):
-        """
-        Annule un échange accepté dans les 24h.
-        - trade : l'échange à annuler
-        - proposer : utilisateur qui annule (doit être le proposeur)
-        """
         if trade.proposer != proposer:
             raise PermissionError("Seul le proposeur peut annuler cet échange.")
 
@@ -175,7 +160,6 @@ class TradeCommandService:
         trade.status = "cancelled"
         trade.save()
 
-        # Remettre les articles disponibles
         for item in list(trade.offered_items.all()) + list(trade.requested_items.all()):
             item.available = True
             item.received_by_trade = False
@@ -192,12 +176,6 @@ class TradeCommandService:
 
     @staticmethod
     def send_message(trade, sender, content):
-        """
-        Envoie un message dans un échange.
-        - trade : l'échange concerné
-        - sender : utilisateur qui envoie
-        - content : contenu du message
-        """
         if sender not in [trade.proposer, trade.receiver]:
             raise PermissionError("Vous ne participez pas à cet échange.")
 
@@ -222,13 +200,6 @@ class TradeCommandService:
 
     @staticmethod
     def set_delivery(trade, proposer, delivery_mode, delivery_info):
-        """
-        Définit le mode de livraison.
-        - trade : l'échange concerné
-        - proposer : utilisateur qui définit (doit être le proposeur)
-        - delivery_mode : mode choisi (hand, post, other)
-        - delivery_info : informations complémentaires
-        """
         if trade.proposer != proposer:
             raise PermissionError("Seul le proposeur peut définir le mode de livraison.")
 
@@ -256,11 +227,6 @@ class TradeCommandService:
 
     @staticmethod
     def confirm_delivery(trade, receiver):
-        """
-        Confirme la livraison et finalise l'échange.
-        - trade : l'échange à finaliser
-        - receiver : utilisateur qui confirme (doit être le destinataire)
-        """
         if trade.receiver != receiver:
             raise PermissionError("Seul le destinataire peut confirmer la livraison.")
 
@@ -273,7 +239,6 @@ class TradeCommandService:
         trade.status = "completed"
         trade.save()
 
-        # Transférer la propriété des articles
         for item in trade.offered_items.all():
             item.owner = trade.receiver
             item.available = False
@@ -297,13 +262,6 @@ class TradeCommandService:
 
     @staticmethod
     def rate_trade(trade, rater, score, comment=""):
-        """
-        Note un échange terminé.
-        - trade : l'échange à noter
-        - rater : utilisateur qui note
-        - score : note de 1 à 5
-        - comment : commentaire optionnel
-        """
         if rater not in [trade.proposer, trade.receiver]:
             raise PermissionError("Vous ne participez pas à cet échange.")
 
@@ -337,11 +295,6 @@ class TradeCommandService:
 
     @staticmethod
     def toggle_item_availability(item, owner):
-        """
-        Bascule la disponibilité d'un article reçu par échange.
-        - item : l'article à modifier
-        - owner : utilisateur propriétaire
-        """
         if item.owner != owner:
             raise PermissionError("Vous n'êtes pas le propriétaire de cet article.")
 
@@ -355,7 +308,6 @@ class TradeCommandService:
 
     @staticmethod
     def _cancel_conflicting_trades(accepted_trade):
-        """Annule tous les échanges pending conflictuels."""
         from django.db.models import Q
         all_items = (
             list(accepted_trade.offered_items.all()) +

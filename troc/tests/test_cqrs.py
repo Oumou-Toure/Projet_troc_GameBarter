@@ -1,5 +1,6 @@
 import datetime
 import pytest
+from decimal import Decimal
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -22,7 +23,8 @@ IMAGE_BYTES = (
 
 @pytest.fixture
 def make_item(db):
-    def _make(title, owner, category, available=True, received_by_trade=False):
+    def _make(title, owner, category, available=True, received_by_trade=False,
+              condition="good", platform="other", estimated_value=None, release_year=None):
         return Item.objects.create(
             title=title,
             description=f"Description de {title}",
@@ -30,6 +32,10 @@ def make_item(db):
             category=category,
             available=available,
             received_by_trade=received_by_trade,
+            condition=condition,
+            platform=platform,
+            estimated_value=estimated_value,
+            release_year=release_year,
             image=SimpleUploadedFile(
                 f"{title}.gif", IMAGE_BYTES, content_type="image/gif"
             ),
@@ -53,7 +59,7 @@ class TestProposeTradeCommand:
         target = make_item("Zelda", receiver, category)
         offered = make_item("Mario", proposer, category)
 
-        trade = TradeCommandService.propose_trade(
+        trade, _ = TradeCommandService.propose_trade(
             proposer=proposer,
             target_item=target,
             offered_item_ids=[offered.id],
@@ -76,14 +82,16 @@ class TestProposeTradeCommand:
         target = make_item("Dark Souls", receiver, category)
         offered = make_item("Elden Ring", proposer, category)
 
-        trade = TradeCommandService.propose_trade(
+        trade, _ = TradeCommandService.propose_trade(
             proposer=proposer,
             target_item=target,
             offered_item_ids=[offered.id],
             message_content="Je suis intéressé !",
         )
 
-        assert Message.objects.filter(trade=trade, content__icontains="intéressé").exists()
+        assert Message.objects.filter(
+            trade=trade, content__icontains="intéressé"
+        ).exists()
 
     @pytest.mark.django_db
     def test_propose_trade_creates_notification(
@@ -95,7 +103,7 @@ class TestProposeTradeCommand:
         target = make_item("FIFA", receiver, category)
         offered = make_item("NBA 2K", proposer, category)
 
-        trade = TradeCommandService.propose_trade(
+        trade, _ = TradeCommandService.propose_trade(
             proposer=proposer,
             target_item=target,
             offered_item_ids=[offered.id],
@@ -369,7 +377,9 @@ class TestSendMessageCommand:
         requested = make_item("Silent Hill", receiver, category)
         trade = create_trade(proposer, receiver, [offered], [requested])
 
-        message = TradeCommandService.send_message(trade, proposer, "Disponible ce weekend ?")
+        message = TradeCommandService.send_message(
+            trade, proposer, "Disponible ce weekend ?"
+        )
 
         assert message.content == "Disponible ce weekend ?"
         assert message.sender == proposer
@@ -791,3 +801,199 @@ class TestTradeQueryService:
 
         rated_ids = TradeQueryService.get_rated_trade_ids(proposer)
         assert trade.id in rated_ids
+
+
+# =======================
+# TESTS CRITÈRES DE VALEUR
+# =======================
+
+class TestValueCriteriaCommand:
+
+    @pytest.mark.django_db
+    def test_propose_trade_detects_value_imbalance(
+        self, create_user, create_category
+    ):
+        proposer = create_user("imbalance_prop")
+        receiver = create_user("imbalance_recv")
+        category = create_category("Imbalance")
+
+        target = Item.objects.create(
+            title="Jeu cher",
+            description="Valeur élevée",
+            owner=receiver,
+            category=category,
+            available=True,
+            estimated_value=Decimal("60.00"),
+            platform="ps5",
+            condition="new",
+            image=SimpleUploadedFile(
+                "cher.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+        offered = Item.objects.create(
+            title="Jeu pas cher",
+            description="Valeur faible",
+            owner=proposer,
+            category=category,
+            available=True,
+            estimated_value=Decimal("10.00"),
+            platform="ps5",
+            condition="good",
+            image=SimpleUploadedFile(
+                "cheap.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+
+        trade, imbalance_warning = TradeCommandService.propose_trade(
+            proposer=proposer,
+            target_item=target,
+            offered_item_ids=[offered.id],
+        )
+
+        assert imbalance_warning is True
+        assert trade.status == "pending"
+
+    @pytest.mark.django_db
+    def test_propose_trade_no_imbalance_when_balanced(
+        self, create_user, create_category
+    ):
+        proposer = create_user("balanced_prop")
+        receiver = create_user("balanced_recv")
+        category = create_category("Balanced")
+
+        target = Item.objects.create(
+            title="Jeu A",
+            description="Valeur normale",
+            owner=receiver,
+            category=category,
+            available=True,
+            estimated_value=Decimal("30.00"),
+            platform="switch",
+            condition="good",
+            image=SimpleUploadedFile(
+                "a.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+        offered = Item.objects.create(
+            title="Jeu B",
+            description="Valeur similaire",
+            owner=proposer,
+            category=category,
+            available=True,
+            estimated_value=Decimal("25.00"),
+            platform="switch",
+            condition="good",
+            image=SimpleUploadedFile(
+                "b.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+
+        trade, imbalance_warning = TradeCommandService.propose_trade(
+            proposer=proposer,
+            target_item=target,
+            offered_item_ids=[offered.id],
+        )
+
+        assert imbalance_warning is False
+
+    @pytest.mark.django_db
+    def test_check_value_imbalance_query(self, create_user, create_category):
+        user = create_user("check_imbalance_user")
+        category = create_category("CheckImbalance")
+
+        target = Item.objects.create(
+            title="Target",
+            description="Cible",
+            owner=user,
+            category=category,
+            available=True,
+            estimated_value=Decimal("60.00"),
+            platform="ps5",
+            condition="new",
+            image=SimpleUploadedFile(
+                "target.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+        offered = Item.objects.create(
+            title="Offered",
+            description="Offert",
+            owner=user,
+            category=category,
+            available=True,
+            estimated_value=Decimal("10.00"),
+            platform="ps5",
+            condition="good",
+            image=SimpleUploadedFile(
+                "offered.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+
+        assert TradeQueryService.check_value_imbalance([offered], target) is True
+
+    @pytest.mark.django_db
+    def test_get_items_by_platform(self, create_user, create_category):
+        owner = create_user("platform_owner")
+        category = create_category("PlatformTest")
+
+        ps5_item = Item.objects.create(
+            title="PS5 Game",
+            description="Pour PS5",
+            owner=owner,
+            category=category,
+            available=True,
+            platform="ps5",
+            condition="new",
+            image=SimpleUploadedFile(
+                "ps5.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+        Item.objects.create(
+            title="Switch Game",
+            description="Pour Switch",
+            owner=owner,
+            category=category,
+            available=True,
+            platform="switch",
+            condition="good",
+            image=SimpleUploadedFile(
+                "switch.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+
+        ps5_items = TradeQueryService.get_items_by_platform("ps5")
+        assert ps5_item in ps5_items
+        assert all(i.platform == "ps5" for i in ps5_items)
+
+    @pytest.mark.django_db
+    def test_get_items_by_condition(self, create_user, create_category):
+        owner = create_user("condition_owner")
+        category = create_category("ConditionTest")
+
+        new_item = Item.objects.create(
+            title="Jeu Neuf",
+            description="Tout neuf",
+            owner=owner,
+            category=category,
+            available=True,
+            platform="ps5",
+            condition="new",
+            image=SimpleUploadedFile(
+                "new.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+        Item.objects.create(
+            title="Jeu Abimé",
+            description="Abîmé",
+            owner=owner,
+            category=category,
+            available=True,
+            platform="ps5",
+            condition="damaged",
+            image=SimpleUploadedFile(
+                "damaged.gif", IMAGE_BYTES, content_type="image/gif"
+            ),
+        )
+
+        new_items = TradeQueryService.get_items_by_condition("new")
+        assert new_item in new_items
+        assert all(i.condition == "new" for i in new_items)
