@@ -241,6 +241,121 @@ def test_accepting_trade_cancels_conflicting_pending_trade(
 
 
 @pytest.mark.django_db
+def test_many_concurrent_negotiations_on_same_item_keep_histories_consistent(
+    django_live_server,
+    create_user,
+    create_category,
+    create_item,
+    login_user,
+):
+    receiver = create_user("load_receiver")
+    category = create_category("Load Test")
+    requested_item = create_item(
+        "Console Collector",
+        "Objet unique vise par plusieurs negociations.",
+        receiver,
+        category,
+    )
+
+    offers = []
+    for index in range(6):
+        proposer = create_user(f"load_sender_{index}")
+        offered_item = create_item(
+            f"Offre concurrente {index}",
+            "Objet propose dans une negociation concurrente.",
+            proposer,
+            category,
+        )
+        offers.append((proposer, offered_item, f"Message concurrent {index}"))
+
+    creation_sessions = []
+    try:
+        for proposer, offered_item, message in offers:
+            session = login_user(proposer)
+            creation_sessions.append(session)
+            page = session["page"]
+            page.goto(f"{django_live_server.url}/item/{requested_item.id}/")
+            page.click("a[href*='/trade/create/']")
+            _set_hidden_control(page, f'input[name="offered_items"][value="{offered_item.id}"]')
+            page.fill('textarea[name="message"]', message)
+            page.click('button[type="submit"]')
+            page.wait_for_url(f"{django_live_server.url}/my-trades/")
+
+        trades = list(
+            Trade.objects.filter(receiver=receiver, requested_items=requested_item)
+            .prefetch_related("offered_items", "messages")
+            .order_by("id")
+        )
+        assert len(trades) == len(offers)
+        assert all(trade.status == "pending" for trade in trades)
+        assert Message.objects.filter(trade__in=trades).count() == len(offers)
+        assert Notification.objects.filter(
+            user=receiver,
+            notif_type="trade_received",
+            trade__in=trades,
+        ).count() == len(offers)
+
+        receiver_session = login_user(receiver)
+        receiver_page = receiver_session["page"]
+        receiver_page.goto(f"{django_live_server.url}/my-trades/")
+        for _, offered_item, message in offers:
+            assert receiver_page.locator(f"text={offered_item.title}").is_visible()
+            assert receiver_page.locator(f"text={message}").is_visible()
+
+        accepted_trade = trades[2]
+        receiver_page.click(f'form[action="/trade/{accepted_trade.id}/action/"] button[value="accept"]')
+        receiver_page.wait_for_url(f"{django_live_server.url}/my-trades/")
+
+        statuses = dict(Trade.objects.filter(id__in=[trade.id for trade in trades]).values_list("id", "status"))
+        assert statuses[accepted_trade.id] == "accepted"
+        assert list(statuses.values()).count("accepted") == 1
+        assert list(statuses.values()).count("cancelled") == len(offers) - 1
+        assert "pending" not in statuses.values()
+
+        requested_item.refresh_from_db()
+        assert requested_item.available is False
+
+        accepted_offered_item = accepted_trade.offered_items.get()
+        accepted_offered_item.refresh_from_db()
+        assert accepted_offered_item.available is False
+
+        cancelled_trades = [trade for trade in trades if trade.id != accepted_trade.id]
+        for cancelled_trade in cancelled_trades:
+            cancelled_offered_item = cancelled_trade.offered_items.get()
+            cancelled_offered_item.refresh_from_db()
+            assert cancelled_offered_item.available is True
+            assert Notification.objects.filter(
+                user=cancelled_trade.proposer,
+                trade=cancelled_trade,
+                notif_type="trade_cancelled",
+            ).exists()
+
+        assert Notification.objects.filter(
+            user=accepted_trade.proposer,
+            trade=accepted_trade,
+            notif_type="trade_accepted",
+        ).exists()
+
+        for trade, (proposer, offered_item, message) in zip(trades, offers):
+            proposer_session = login_user(proposer)
+            proposer_page = proposer_session["page"]
+            proposer_page.goto(f"{django_live_server.url}/my-trades/")
+            assert proposer_page.locator(f"text={requested_item.title}").is_visible()
+            assert proposer_page.locator(f"text={offered_item.title}").is_visible()
+            assert proposer_page.locator(f"text={message}").is_visible()
+            if trade.id == accepted_trade.id:
+                assert proposer_page.locator("text=Annuler l'").is_visible()
+            else:
+                assert proposer_page.locator("text=Annul").is_visible()
+            proposer_session["context"].close()
+
+        receiver_session["context"].close()
+    finally:
+        for session in creation_sessions:
+            session["context"].close()
+
+
+@pytest.mark.django_db
 def test_users_can_send_messages_during_trade_negotiation(
     django_live_server,
     create_user,
