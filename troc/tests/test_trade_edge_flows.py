@@ -582,6 +582,85 @@ def test_notification_badge_disappears_after_opening_notifications(
 
 
 @pytest.mark.django_db
+def test_completed_trade_cannot_be_rated_twice_by_same_user(
+    django_live_server,
+    create_user,
+    create_category,
+    create_item,
+    create_trade,
+    login_user,
+):
+    proposer = create_user("double_rating_proposer")
+    receiver = create_user("double_rating_receiver")
+    category = create_category("Rating")
+    offered_item = create_item("Celeste", "Plateforme exigeante", proposer, category)
+    requested_item = create_item("Hollow Knight", "Metroidvania", receiver, category)
+    trade = create_trade(
+        proposer=proposer,
+        receiver=receiver,
+        offered_items=[offered_item],
+        requested_items=[requested_item],
+        status="completed",
+        delivery_mode="hand",
+        delivery_info="Remise en main propre",
+    )
+
+    session = login_user(proposer)
+    page = session["page"]
+    page.goto(f"{django_live_server.url}/trade/{trade.id}/rate/")
+    _set_hidden_control(page, 'input[name="score"][value="4"]')
+    page.fill('textarea[name="comment"]', "Premier avis valide.")
+    page.click('button[type="submit"]')
+    page.wait_for_url(f"{django_live_server.url}/my-trades/")
+
+    assert Rating.objects.filter(trade=trade, rater=proposer).count() == 1
+
+    page.goto(f"{django_live_server.url}/trade/{trade.id}/rate/")
+    page.wait_for_url(f"{django_live_server.url}/my-trades/")
+
+    assert Rating.objects.filter(trade=trade, rater=proposer).count() == 1
+    assert page.locator(f'a[href="/trade/{trade.id}/rate/"]').count() == 0
+
+    session["context"].close()
+
+
+@pytest.mark.django_db
+def test_other_user_cannot_access_or_refuse_unrelated_trade(
+    django_live_server,
+    create_user,
+    create_category,
+    create_item,
+    create_trade,
+    login_user,
+):
+    proposer = create_user("private_trade_proposer")
+    receiver = create_user("private_trade_receiver")
+    outsider = create_user("private_trade_outsider")
+    category = create_category("Private")
+    offered_item = create_item("Fire Emblem", "Tactique", proposer, category)
+    requested_item = create_item("Advance Wars", "Strategie", receiver, category)
+    trade = create_trade(
+        proposer=proposer,
+        receiver=receiver,
+        offered_items=[offered_item],
+        requested_items=[requested_item],
+    )
+
+    session = login_user(outsider)
+    page = session["page"]
+    page.goto(f"{django_live_server.url}/trade/{trade.id}/action/")
+    page.wait_for_url(f"{django_live_server.url}/my-trades/")
+
+    trade.refresh_from_db()
+    assert trade.status == "pending"
+    assert Notification.objects.filter(trade=trade, notif_type="trade_refused").count() == 0
+    assert page.locator(f"text={offered_item.title}").count() == 0
+    assert page.locator(f"text={requested_item.title}").count() == 0
+
+    session["context"].close()
+
+
+@pytest.mark.django_db
 def test_invalid_rating_shows_error_and_does_not_create_review(
     django_live_server,
     create_user,

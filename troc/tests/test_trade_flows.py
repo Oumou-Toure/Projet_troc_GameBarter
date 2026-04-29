@@ -66,6 +66,93 @@ def test_home_filters_and_hides_authenticated_user_items(
 
 
 @pytest.mark.django_db
+def test_item_detail_page_displays_item_information(
+    django_live_server,
+    browser,
+    create_user,
+    create_category,
+    create_item,
+):
+    owner = create_user("detail_owner")
+    category = create_category("Adventure")
+    item = create_item(
+        "Okami HD",
+        "Aventure dessinee avec pinceau celeste.",
+        owner,
+        category,
+    )
+
+    page = browser.new_page()
+    page.goto(f"{django_live_server.url}/item/{item.id}/")
+
+    assert page.locator("h2", has_text=item.title).is_visible()
+    assert page.locator(f"text={item.description}").is_visible()
+    assert page.locator(f"text={category.name}").is_visible()
+    assert page.locator(f'a[href="/profil/{owner.username}/"]').is_visible()
+    assert page.locator(f'img[alt="{item.title}"]').is_visible()
+    assert page.locator('a[href="/"]').filter(has_text="Retour").is_visible()
+
+    page.close()
+
+
+@pytest.mark.django_db
+def test_empty_catalog_displays_empty_state(django_live_server, browser):
+    page = browser.new_page()
+    page.goto(f"{django_live_server.url}/")
+
+    assert page.locator("text=0 article").is_visible()
+    assert page.locator("text=/Aucun article/").is_visible()
+    assert page.locator(".card-item").count() == 0
+
+    page.close()
+
+
+@pytest.mark.django_db
+def test_search_without_results_displays_no_result_message(
+    django_live_server,
+    browser,
+    create_user,
+    create_category,
+    create_item,
+):
+    owner = create_user("search_owner")
+    category = create_category("Puzzle")
+    create_item("Portal 2", "Jeu de reflexion.", owner, category)
+
+    page = browser.new_page()
+    page.goto(f"{django_live_server.url}/?q=Introuvable")
+
+    assert page.locator("text=Portal 2").count() == 0
+    assert page.locator("text=/Aucun article/").is_visible()
+    assert page.locator('a[href="/"]').filter(has_text="Voir tous les articles").is_visible()
+
+    page.close()
+
+
+@pytest.mark.django_db
+def test_anonymous_user_sees_catalog_without_trade_button(
+    django_live_server,
+    browser,
+    create_user,
+    create_category,
+    create_item,
+):
+    owner = create_user("anonymous_catalog_owner")
+    category = create_category("Racing")
+    item = create_item("F-Zero", "Course futuriste.", owner, category)
+
+    page = browser.new_page()
+    page.goto(f"{django_live_server.url}/")
+
+    assert page.locator(f"text={item.title}").is_visible()
+    assert page.locator(f'a[href="/item/{item.id}/"]').first.is_visible()
+    assert page.locator(f'a[href="/trade/create/{item.id}/"]').count() == 0
+    assert page.locator('a[href="/login/"]').filter(has_text="Connectez-vous").is_visible()
+
+    page.close()
+
+
+@pytest.mark.django_db
 def test_create_trade_from_item_detail_creates_trade_message_and_notification(
     django_live_server,
     create_user,
