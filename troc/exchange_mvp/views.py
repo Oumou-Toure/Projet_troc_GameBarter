@@ -64,6 +64,11 @@ def home(request):
     if category_id:
         items = items.filter(category_id=category_id)
 
+    # Nouveau filtre plateforme
+    platform = request.GET.get("platform", "")
+    if platform:
+        items = items.filter(platform=platform)
+
     if request.user.is_authenticated:
         items = items.exclude(owner=request.user)
 
@@ -74,8 +79,8 @@ def home(request):
         "categories": categories,
         "query": query,
         "selected_category": category_id,
+        "selected_platform": platform,
     })
-
 
 # --- DÉTAIL ARTICLE ---
 

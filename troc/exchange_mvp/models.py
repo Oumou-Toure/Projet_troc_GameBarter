@@ -16,6 +16,27 @@ class Category(models.Model):
 
 
 class Item(models.Model):
+    CONDITION_CHOICES = [
+        ("new", "Neuf"),
+        ("very_good", "Très bon état"),
+        ("good", "Bon état"),
+        ("correct", "État correct"),
+        ("damaged", "Abîmé"),
+    ]
+
+    PLATFORM_CHOICES = [
+        ("ps5", "PlayStation 5"),
+        ("ps4", "PlayStation 4"),
+        ("xbox_series", "Xbox Series"),
+        ("xbox_one", "Xbox One"),
+        ("switch", "Nintendo Switch"),
+        ("pc", "PC"),
+        ("ps3", "PlayStation 3"),
+        ("wii", "Wii / Wii U"),
+        ("ds", "Nintendo DS / 3DS"),
+        ("other", "Autre"),
+    ]
+
     title = models.CharField(max_length=200)
     description = models.TextField()
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
@@ -24,6 +45,32 @@ class Item(models.Model):
     available = models.BooleanField(default=True)
     received_by_trade = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Nouveaux champs
+    condition = models.CharField(
+        max_length=20,
+        choices=CONDITION_CHOICES,
+        default="good",
+        verbose_name="État"
+    )
+    estimated_value = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Valeur estimée (€)"
+    )
+    platform = models.CharField(
+        max_length=20,
+        choices=PLATFORM_CHOICES,
+        default="other",
+        verbose_name="Plateforme"
+    )
+    release_year = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Année de sortie"
+    )
 
     def __str__(self):
         return self.title

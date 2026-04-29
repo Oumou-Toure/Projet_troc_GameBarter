@@ -10,10 +10,21 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ("title", "owner", "category", "available", "created_at")
-    list_filter = ("category", "available")
+    list_display = ("title", "owner", "category", "platform", "condition", "estimated_value", "available", "created_at")
+    list_filter = ("category", "available", "platform", "condition")
     search_fields = ("title", "owner__username")
     list_editable = ("available",)
+    fieldsets = (
+        ("Informations générales", {
+            "fields": ("title", "description", "category", "image", "owner")
+        }),
+        ("Détails du jeu", {
+            "fields": ("platform", "condition", "estimated_value", "release_year")
+        }),
+        ("Disponibilité", {
+            "fields": ("available", "received_by_trade")
+        }),
+    )
 
 
 @admin.register(Trade)

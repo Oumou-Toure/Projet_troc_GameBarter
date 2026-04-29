@@ -10,6 +10,11 @@
     border: 2px solid #0d6efd;
     background: #f0f5ff;
 }
+.condition-new { color: #198754; }
+.condition-very_good { color: #20c997; }
+.condition-good { color: #0dcaf0; }
+.condition-correct { color: #ffc107; }
+.condition-damaged { color: #dc3545; }
 </style>
 {% endblock %}
 
@@ -18,47 +23,90 @@
     <div class="col-md-8 offset-md-2">
         <h3 class="mb-4">Proposer un échange</h3>
 
+        <!-- Article cible -->
         <div class="card mb-4 shadow-sm">
             <div class="card-header"><strong>Article convoité</strong></div>
             <div class="card-body d-flex gap-3">
-                <img src="{{ target_item.image.url }}" style="width:100px;height:80px;object-fit:cover;border-radius:6px;">
+                <img src="{{ target_item.image.url }}"
+                    style="width:100px;height:80px;object-fit:cover;border-radius:6px;">
                 <div>
                     <h5 class="mb-1">{{ target_item.title }}</h5>
-                    <span class="badge bg-secondary">{{ target_item.category }}</span>
-                    <p class="mb-0 mt-1 small text-muted">
+                    <div class="d-flex gap-2 flex-wrap mb-1">
+                        <span class="badge bg-secondary">{{ target_item.category }}</span>
+                        <span class="badge bg-primary">{{ target_item.get_platform_display }}</span>
+                        <span class="badge bg-light text-dark border">
+                            <span class="condition-{{ target_item.condition }}">●</span>
+                            {{ target_item.get_condition_display }}
+                        </span>
+                        {% if target_item.estimated_value %}
+                        <span class="badge bg-light text-dark border">
+                            {{ target_item.estimated_value }} €
+                        </span>
+                        {% endif %}
+                    </div>
+                    <p class="mb-0 small text-muted">
                         Propriétaire :
-                        <a href="{% url 'user_profile' target_item.owner.username %}">{{ target_item.owner.username }}</a>
+                        <a href="{% url 'user_profile' target_item.owner.username %}">
+                            {{ target_item.owner.username }}
+                        </a>
                     </p>
                 </div>
             </div>
         </div>
 
-        <form method="post">
+        <form method="post" id="tradeForm">
             {% csrf_token %}
             <input type="hidden" name="requested_items" value="{{ target_item.id }}">
 
+            <!-- Sélection articles -->
             <div class="mb-4">
                 <label class="form-label fw-bold">
                     <i class="bi bi-gift"></i> Vos articles à proposer
                     <small class="text-muted fw-normal">(au moins un)</small>
                 </label>
+
                 {% if user_items %}
                 <div class="row g-2">
                     {% for item in user_items %}
                     <div class="col-md-4 col-6">
                         <label class="item-checkbox d-block">
-                            <input type="checkbox" name="offered_items" value="{{ item.id }}" class="d-none">
+                            <input type="checkbox" name="offered_items"
+                                value="{{ item.id }}" class="d-none offered-checkbox"
+                                data-value="{{ item.estimated_value|default:0 }}">
                             <div class="card shadow-sm h-100">
                                 <img src="{{ item.image.url }}" alt="{{ item.title }}">
                                 <div class="card-body p-2">
                                     <strong class="small">{{ item.title }}</strong>
-                                    <p class="text-muted small mb-0">{{ item.category }}</p>
+                                    <p class="text-muted small mb-1">{{ item.category }}</p>
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        <span class="badge bg-primary" style="font-size:0.65rem;">
+                                            {{ item.get_platform_display }}
+                                        </span>
+                                        <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                            <span class="condition-{{ item.condition }}">●</span>
+                                            {{ item.get_condition_display }}
+                                        </span>
+                                        {% if item.estimated_value %}
+                                        <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                            {{ item.estimated_value }} €
+                                        </span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </label>
                     </div>
                     {% endfor %}
                 </div>
+
+                <!-- Avertissement déséquilibre -->
+                <div id="imbalanceWarning" class="alert alert-warning mt-3 d-none">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Attention :</strong> La valeur estimée de vos articles est
+                    significativement différente de celle de l'article demandé.
+                    L'autre utilisateur pourrait refuser l'échange.
+                </div>
+
                 {% else %}
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle"></i>
@@ -67,16 +115,19 @@
                 {% endif %}
             </div>
 
+            <!-- Message -->
             <div class="mb-4">
                 <label for="message" class="form-label fw-bold">
                     <i class="bi bi-chat"></i> Message (optionnel)
                 </label>
                 <textarea class="form-control" id="message" name="message" rows="3"
-                    placeholder="Présentez-vous, expliquez pourquoi cet article vous intéresse..."></textarea>
+                    placeholder="Présentez-vous, expliquez pourquoi cet article vous intéresse...">
+                </textarea>
             </div>
 
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-success" {% if not user_items %}disabled{% endif %}>
+                <button type="submit" class="btn btn-success"
+                    {% if not user_items %}disabled{% endif %}>
                     <i class="bi bi-send"></i> Proposer l'échange
                 </button>
                 <a href="{% url 'home' %}" class="btn btn-outline-secondary">Annuler</a>
@@ -88,12 +139,40 @@
 
 {% block extra_js %}
 <script>
+const targetValue = {{ target_item.estimated_value|default:0 }};
+
 document.querySelectorAll('.item-checkbox input').forEach(cb => {
     cb.addEventListener('change', () => {
+        // Highlight visuel
         const card = cb.closest('.item-checkbox').querySelector('.card');
         card.style.borderColor = cb.checked ? '#0d6efd' : '';
         card.style.background = cb.checked ? '#f0f5ff' : '';
+
+        // Calcul déséquilibre
+        checkImbalance();
     });
 });
+
+function checkImbalance() {
+    if (targetValue === 0) return;
+
+    let totalOffered = 0;
+    document.querySelectorAll('.offered-checkbox:checked').forEach(cb => {
+        totalOffered += parseFloat(cb.dataset.value) || 0;
+    });
+
+    const warning = document.getElementById('imbalanceWarning');
+    if (totalOffered === 0) {
+        warning.classList.add('d-none');
+        return;
+    }
+
+    const ratio = Math.max(totalOffered, targetValue) / Math.min(totalOffered, targetValue);
+    if (ratio >= 2) {
+        warning.classList.remove('d-none');
+    } else {
+        warning.classList.add('d-none');
+    }
+}
 </script>
 {% endblock %}
